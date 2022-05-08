@@ -33,13 +33,13 @@ class dLocalMAP:
         self.partition = [[]]
         self.c, self.alpha = args
         ##print('Alpha old',self.alpha.shape)
-        self.alpha0 = [1,1,1]
+        self.alpha0 = [3,3,3]
         self.N = 0
         ###print('C',self.c)
         ##print('Alpha', self.alpha0)
     def probClustVal(self, k, i, val):
         """Find P(j|k)"""
-        cj = len([x for x in self.partition[k] if x[i]==val+1])
+        cj = len([x for x in self.partition[k] if x[i]==val])
         nk = len(self.partition[k])
         return (cj + self.alpha[i][val])/(nk + self.alpha0[i])
     
@@ -48,10 +48,12 @@ class dLocalMAP:
         pjks = []
         
         for i in range(len(stim)):
+
             cj = len([x for x in self.partition[k] if x[i]==stim[i]])
+
             nk = len(self.partition[k])
             ##print(cj,i,stim[i],self.alpha.shape)
-            pjks.append((cj + self.alpha[i][stim[i]-1])/(nk + self.alpha0[i]) )
+            pjks.append((cj + self.alpha[i][stim[i]])/(nk + self.alpha0[i]) )
         return np.product( pjks )
         
     
@@ -69,7 +71,8 @@ class dLocalMAP:
         
         # put it together
         pkF = (pk*pFk) # / sum( pk*pFk )
-        
+##        if stim[0] == 92:
+##            print(pkF)
         return pkF
     
     def stimulate(self, stim):
@@ -114,45 +117,56 @@ def testlocalmapD():
     the most likely cluster. To see that the model is working correctly, you
     can follow along with Anderson (1991), which steps through in the same way.
     """
-    stims = [[1, 1, 1, 1, 1], # Medin & Schaffer (1978)
-             [1, 0, 1, 0, 1], 
-             [1, 0, 1, 1, 0],
-             [0, 0, 0, 0, 0],
-             [0, 1, 0, 1, 1],  
-             [0, 1, 0, 0, 0]]
-    # These are the classic Shepard Type II and Type IV datasets.
-    # Uncomment the one you want to try out; you might want to uncomment
-    # shuffling the stims too if you don't care about order.
-    #stims = [[0, 0, 0, 0], [0, 0, 1, 0], [1, 1, 0, 1], [1, 1, 1, 1], [1, 0, 0, 0], [1, 0, 1, 1], [0, 1, 0, 0], [0, 1, 1, 1]] # Type IV
-    #stims = [[0, 0, 0, 0], [0, 0, 1, 0], [1, 1, 0, 0], [1, 1, 1, 0], [1, 0, 0, 1], [1, 0, 1, 1], [0, 1, 0, 1], [0, 1, 1, 1]] # Type II
-    
-    for _ in range(5):
-        model = dLocalMAP([.5, np.array([np.ones(100)/100,np.ones(100)/100,[0.33,0.34,0.33]])])
-        
-        ##shuffle(stims)
-        df = pd.read_csv('X.csv',header = None)
-        train = np.array(df)
-        np.random.shuffle(train)
-        df = pd.read_csv('y.csv',header = None)
-        df[2] = -1
-        test = np.array(df)
-        np.random.shuffle(test)
+    for har in range(10):
+        res =[]
+        np.random.seed(har)
+        for i in range(10):
+            model = dLocalMAP([0.33, np.ones((3,3))])
+            
+            
+            df = pd.read_csv('X.csv',header = None)
+            train = np.array(df)
+            np.random.shuffle(train)
+            df = pd.read_csv('y.csv',header = None)
+            df[2] = -1
+            test = np.array(df)
+            np.random.shuffle(test)
 
-        ##print(max(train, key=lambda x: x[0])[0])
-        ##break
-        
-        for t in train:
-            model.stimulate(t)
+         
+            for t in train:
+                t[0] = ( t[0]-34)//20
+                t[1] = (t[1] -55)//10
+                t[2] =  t[2]-1
+                
+                model.stimulate(t)
 
-##        for i in range(len(model.partition)):
-##            #print ('Model ',model.partition)
-##            print(i,model.partition[i],end='\n\n')
+            
 
-        for q in test:
-            q[2] = np.argmax(model.query(q))+1
-            print (q[0],q[1],q[2])
-            model.stimulate(q)
-        print('\n\n\n')
+            temp = [0]*3
+            for q in test:
+                
+                t[0] = (q[0]-34)//20
+                t[1] = (q[1] -55)//10
+                t[2] = q[2]
+                t[2] = np.argmax(model.query(t))
+                model.stimulate(t)
+                q[2] = t[2]+1
+            ##print('Classification for ',i+1,'th shuffle',sep='',end='\n\n')
+            df = pd.DataFrame(test,columns = ['Weight' ,'Height',  'Label' ])
+            ##print(df.head(10),end='\n\n\n')
+            res.append(sorted(test, key=lambda x: x[0]))
+
+        check(res)
+
+def check(res):
+  final_res = []
+  for i in range(10):
+    temp = list(res[0][i])+[res[1][i][2]]+[res[2][i][2]]+[res[3][i][2]]+[res[4][i][2]]+[res[5][i][2]]+[res[6][i][2]]+[res[7][i][2]]+[res[8][i][2]]+[res[9][i][2]]
+    final_res.append(temp)
+
+  print('Classification for all shuffles ',end='\n\n')
+  df = pd.DataFrame(final_res,columns = ['Weight' ,'Height',  'Shuffle 1' , 'Shuffle 2',  'Shuffle 3',  'Shuffle 4','Shuffle 5','6','7','8','9','10'])
+  print(df.head(10))
 
 def main():
     testlocalmapD()
